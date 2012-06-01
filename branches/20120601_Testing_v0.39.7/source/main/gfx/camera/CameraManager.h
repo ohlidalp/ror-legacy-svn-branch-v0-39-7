@@ -17,8 +17,8 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with Rigs of Rods.  If not, see <http://www.gnu.org/licenses/>.
 */
-#ifndef __CAMERA_MODE_H_
-#define __CAMERA_MODE_H_
+#ifndef __CAMERA_MANAGER_H_
+#define __CAMERA_MANAGER_H_
 
 #include "RoRPrerequisites.h"
 
@@ -39,6 +39,7 @@ public:
 	typedef struct cameraContext {
 		Beam *mCurrTruck;
 		Character *mCharacter;
+		Collisions *mCollisions;
 		DOFManager *mDof;
 		HeightFinder *mHfinder;
 		Ogre::Camera *mCamera;
@@ -60,7 +61,8 @@ public:
 		CAMERA_BEHAVIOR_VEHICLE_CINECAM,
 		CAMERA_BEHAVIOR_END,
 		CAMERA_BEHAVIOR_FREE,
-		CAMERA_BEHAVIOR_FIXED
+		CAMERA_BEHAVIOR_FIXED,
+		CAMERA_BEHAVIOR_ISOMETRIC
 	};
 
 	void update(float dt);
@@ -94,4 +96,4 @@ protected:
 	bool mouseReleased(const OIS::MouseEvent& _arg, OIS::MouseButtonID _id);
 };
 
-#endif // __CAMERA_MODE_H_
+#endif // __CAMERA_MANAGER_H_

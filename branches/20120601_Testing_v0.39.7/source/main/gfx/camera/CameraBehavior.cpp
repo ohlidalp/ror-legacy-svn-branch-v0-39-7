@@ -20,8 +20,9 @@ along with Rigs of Rods.  If not, see <http://www.gnu.org/licenses/>.
 #include "CameraBehavior.h"
 
 #include "Beam.h"
-#include "InputEngine.h"
+#include "collisions.h"
 #include "heightfinder.h"
+#include "InputEngine.h"
 #include "Ogre.h"
 
 using namespace Ogre;
@@ -122,7 +123,15 @@ void CameraBehavior::update(const CameraManager::cameraContext_t &ctx)
 
 	Vector3 camPosition = (1.0f / (camRatio + 1.0f)) * desiredPosition + (camRatio / (camRatio + 1.0f)) * precedingPosition;
 
-	ctx.mCamera->setPosition(camPosition);
+	if ( ctx.mCollisions && ctx.mCollisions->forcecam )
+	{
+		ctx.mCamera->setPosition(ctx.mCollisions->forcecampos);
+		ctx.mCollisions->forcecam = false;
+	} else
+	{
+		ctx.mCamera->setPosition(camPosition);
+	}
+
 	ctx.mCamera->lookAt(camLookAt);
 }
 
@@ -144,5 +153,6 @@ bool CameraBehavior::mouseMoved(const CameraManager::cameraContext_t &ctx, const
 void CameraBehavior::reset(const CameraManager::cameraContext_t &ctx)
 {
 	camRotX = 0.0f;
+	camRotY = 0.3f;
 	ctx.mCamera->setFOVy(ctx.fovExternal);
 }

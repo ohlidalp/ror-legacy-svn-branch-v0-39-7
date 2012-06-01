@@ -62,7 +62,6 @@ void CameraBehaviorStatic::update(const CameraManager::cameraContext_t &ctx)
 
 	if ( ctx.mDof )
 	{
-		ctx.mDof->setFocusMode(DOFManager::Manual);
 		ctx.mDof->setFocus(camDist);
 		ctx.mDof->setLensFOV(Radian(fov));
 	}
@@ -71,6 +70,11 @@ void CameraBehaviorStatic::update(const CameraManager::cameraContext_t &ctx)
 void CameraBehaviorStatic::activate(const CameraManager::cameraContext_t &ctx, bool reset /* = true */)
 {
 	fovPreviously = ctx.mCamera->getFOVy();
+
+	if ( ctx.mDof )
+	{
+		ctx.mDof->setFocusMode(DOFManager::Manual);
+	}
 }
 
 void CameraBehaviorStatic::deactivate(const CameraManager::cameraContext_t &ctx)

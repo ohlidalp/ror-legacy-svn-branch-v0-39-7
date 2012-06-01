@@ -2402,6 +2402,18 @@ bool InputEngine::isKeyDown(OIS::KeyCode key)
 	return this->mKeyboard->isKeyDown(key);
 }
 
+bool InputEngine::isKeyDownValueBounce(OIS::KeyCode mod, float time)
+{
+	if(event_times[-mod] > 0)
+		return false;
+	else
+	{
+		bool res = isKeyDown(mod);
+		if(res) event_times[-mod] = time;
+		return res;
+	}
+}
+
 Ogre::String InputEngine::getDeviceName(event_trigger_t evt)
 {
 	switch(evt.eventtype)
