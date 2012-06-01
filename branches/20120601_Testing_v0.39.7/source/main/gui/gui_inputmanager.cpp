@@ -206,7 +206,7 @@ bool GUIInputManager::mouseReleased(const OIS::MouseEvent& _arg, OIS::MouseButto
 			handled = false;
 	}
 
-	if(!handled)
+	if(!handled && RoRFrameListener::eflsingleton->getOverlayWrapper())
 	{
 		// update the old airplane / autopilot gui
 		handled = RoRFrameListener::eflsingleton->getOverlayWrapper()->mouseReleased(_arg, _id);
