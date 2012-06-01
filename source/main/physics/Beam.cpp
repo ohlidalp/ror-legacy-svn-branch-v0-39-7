@@ -128,6 +128,7 @@ Beam::Beam(int tnum, SceneManager *manager, SceneNode *parent, RenderWindow* win
 	, lastwspeed(0.0)
 	, leftMirrorAngle(0.52)
 	, lights(1)
+	, linkedBeams(std::list<Beam*>())
 	, lockSkeletonchange(false)
 	, mTimeUntilNextToggle(0)
 	, mWindow(win)
@@ -1360,17 +1361,17 @@ float Beam::getTotalMass(bool withLocked)
 
 	float mass = totalmass;
 	
-	std::list<Beam*> linkedBeams = getAllLinkedBeams();
-
 	for (std::list<Beam*>::iterator it = linkedBeams.begin(); it != linkedBeams.end(); ++it)
+	{
 		mass += (*it)->totalmass;
+	}
 
 	return mass;
 }
 
-std::list<Beam*> Beam::getAllLinkedBeams()
+void Beam::determineLinkedBeams()
 {
-	std::list<Beam*> result;
+	linkedBeams.clear();
 
 	bool found = true;
 	std::map< Beam*, bool> lookup_table;
@@ -1393,7 +1394,7 @@ std::list<Beam*> Beam::getAllLinkedBeams()
 						ret = lookup_table.insert(std::pair< Beam*, bool>(it_hook->lockTruck, false));
 						if (ret.second)
 						{
-							result.push_back(it_hook->lockTruck);
+							linkedBeams.push_back(it_hook->lockTruck);
 							found = true;
 						}
 					}
@@ -1402,8 +1403,6 @@ std::list<Beam*> Beam::getAllLinkedBeams()
 			}
 		}
 	}
-
-	return result;
 }
 
 int Beam::getWheelNodeCount()
@@ -1614,20 +1613,10 @@ int Beam::loadPosition(int indexPosition)
 
 	return 0;
 }
+
 void Beam::updateTruckPosition()
 {
-	// calculate average position (and smooth)
-	if(externalcameramode == 0)
-	{
-		// the classic approach: average over all nodes and beams
-		Vector3 aposition = Vector3::ZERO;
-		for (int n=0; n < free_node; n++)
-		{
-			nodes[n].smoothpos = nodes[n].AbsPosition;
-			aposition += nodes[n].smoothpos;
-		}
-		position = aposition / free_node;
-	} else if(externalcameramode == 1 && freecinecamera > 0)
+	if (externalcameramode == 1 && freecinecamera > 0)
 	{
 		// the new (strange) approach: reuse the cinecam node
 		for (int n=0; n < free_node; n++)
@@ -1635,7 +1624,7 @@ void Beam::updateTruckPosition()
 			nodes[n].smoothpos = nodes[n].AbsPosition;
 		}
 		position = nodes[cinecameranodepos[0]].AbsPosition;
-	} else if(externalcameramode == 2 && externalcameranode >= 0)
+	} else if (externalcameramode == 2 && externalcameranode >= 0)
 	{
 		// the new (strange) approach #2: reuse a specified node
 		for (int n=0; n < free_node; n++)
@@ -1645,6 +1634,7 @@ void Beam::updateTruckPosition()
 		position = nodes[externalcameranode].AbsPosition;
 	} else
 	{
+		// calculate average position (and smooth)
 		Vector3 aposition = Vector3::ZERO;
 		for (int n=0; n < free_node; n++)
 		{
@@ -1948,6 +1938,17 @@ void Beam::SyncReset()
 	//this is a hook assistance beam and needs to be disabled after reset
 	for(std::vector <hook_t>::iterator it = hooks.begin(); it!=hooks.end(); it++)
 	{
+		if (it->lockTruck)
+		{
+			it->lockTruck->determineLinkedBeams();
+			it->lockTruck->hideSkeleton(true, false);
+			
+			for (std::list<Beam*>::iterator it_truck = it->lockTruck->linkedBeams.begin(); it_truck != it->lockTruck->linkedBeams.end(); ++it)
+			{
+				(*it_truck)->determineLinkedBeams();
+				(*it_truck)->hideSkeleton(true, false);
+			}
+		}
 		it->beam->mSceneNode->detachAllObjects();
 		it->beam->disabled = true;
 		it->locked        = UNLOCKED;
@@ -4368,10 +4369,10 @@ void Beam::showSkeleton(bool meshes, bool newMode, bool linked)
 	if (linked)
 	{
 		// apply to the locked truck
-		std::list<Beam*> linkedBeams = getAllLinkedBeams();
-
 		for (std::list<Beam*>::iterator it = linkedBeams.begin(); it != linkedBeams.end(); ++it)
+		{
 			(*it)->showSkeleton(meshes, newMode, false);
+		}
 	}
 
 	lockSkeletonchange=false;
@@ -4457,10 +4458,10 @@ void Beam::hideSkeleton(bool newMode, bool linked)
 	if (linked)
 	{
 		// apply to the locked truck
-		std::list<Beam*> linkedBeams = getAllLinkedBeams();
-
 		for (std::list<Beam*>::iterator it = linkedBeams.begin(); it != linkedBeams.end(); ++it)
+		{
 			(*it)->hideSkeleton(newMode, false);
+		}
 	}
 
 	lockSkeletonchange=false;
@@ -4559,10 +4560,10 @@ void Beam::setBeamVisibility(bool visible, bool linked)
 	if (linked)
 	{
 		// apply to the locked truck
-		std::list<Beam*> linkedBeams = getAllLinkedBeams();
-
 		for (std::list<Beam*>::iterator it = linkedBeams.begin(); it != linkedBeams.end(); ++it)
+		{
 			(*it)->setBeamVisibility(visible, false);
+		}
 	}
 }
 
@@ -4602,10 +4603,10 @@ void Beam::setMeshVisibility(bool visible, bool linked)
 	if (linked)
 	{
 		// apply to the locked truck
-		std::list<Beam*> linkedBeams = getAllLinkedBeams();
-
 		for (std::list<Beam*>::iterator it = linkedBeams.begin(); it != linkedBeams.end(); ++it)
+		{
 			(*it)->setMeshVisibility(visible, false);
+		}
 	}
 }
 
@@ -4843,7 +4844,7 @@ void Beam::hookToggle(int group, int mode, int node_number)
 		{
 			//manually triggerd (EV_COMMON_LOCK). Toggle all hooks groups with group#: -1, 0, 1 ++
 			if (it->group <= -2)
-					continue;
+				continue;
 		}
 
 		if (mode == HOOK_LOCK && group == -2)
@@ -4871,6 +4872,8 @@ void Beam::hookToggle(int group, int mode, int node_number)
 			//check relock delay timer for autolock nodes and skip if not 0
 			continue;
 		}
+
+		Beam* lastLockTruck = it->lockTruck; // memorize current value
 
 		//this is a locked or prelocked hook and its not a locking attempt
 		if ((it->locked == LOCKED || it->locked == PRELOCK) && mode != HOOK_LOCK)
@@ -4984,6 +4987,30 @@ void Beam::hookToggle(int group, int mode, int node_number)
 				//if(found)
 					// if we found some lock, we wont check all other trucks
 					//break;
+			}
+		}
+
+		if (it->lockTruck != lastLockTruck)
+		{
+			std::list<Beam*> linkedBeams (linkedBeams);
+
+			linkedBeams.push_back(this);
+			linkedBeams.push_back(std::max(lastLockTruck, it->lockTruck));
+			linkedBeams.splice(linkedBeams.end(), linkedBeams.back()->linkedBeams);
+			linkedBeams.sort();
+			linkedBeams.unique();
+
+			for (std::list<Beam*>::iterator it = linkedBeams.begin(); it != linkedBeams.end(); ++it)
+			{
+				(*it)->determineLinkedBeams();
+
+				if (skeleton && this != (*it) && !(*it)->skeleton)
+				{
+					(*it)->showSkeleton(true, true, false);
+				} else if (skeleton && this != (*it) && (*it)->skeleton)
+				{
+					(*it)->hideSkeleton(true, false);
+				}
 			}
 		}
 	}

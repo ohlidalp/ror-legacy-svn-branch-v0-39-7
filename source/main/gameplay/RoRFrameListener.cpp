@@ -1819,7 +1819,7 @@ void RoRFrameListener::loadObject(const char* name, float px, float py, float pz
 #endif //USE_MYGUI
 }
 
-void updateCruiseControl(Beam* curr_truck, float dt)
+void RoRFrameListener::updateCruiseControl(Beam* curr_truck, float dt)
 {
 	if (INPUTENGINE.getEventValue(EV_TRUCK_BRAKE) > 0.05f ||
 		INPUTENGINE.getEventValue(EV_TRUCK_MANUAL_CLUTCH) > 0.05f ||
@@ -1903,7 +1903,7 @@ void updateCruiseControl(Beam* curr_truck, float dt)
 	}
 }
 
-void checkSpeedlimit(Beam* curr_truck, float dt)
+void RoRFrameListener::checkSpeedlimit(Beam* curr_truck, float dt)
 {
 	if (curr_truck->sl_enabled && curr_truck->engine->getGear() != 0)
 	{
@@ -2398,8 +2398,10 @@ bool RoRFrameListener::updateEvents(float dt)
 						{
 							bool arcadeControls = BSETTING("ArcadeControls", false);
 
-							float accval = INPUTENGINE.getEventValue(EV_TRUCK_ACCELERATE);
-							float brake  = INPUTENGINE.getEventValue(EV_TRUCK_BRAKE);
+							float accl  = INPUTENGINE.getEventValue(EV_TRUCK_ACCELERATE);
+							float brake = INPUTENGINE.getEventValue(EV_TRUCK_BRAKE);
+
+							curr_truck->engine->setBrake(brake);
 
 							// arcade controls are only working with auto-clutch!
 							if (!arcadeControls || curr_truck->engine->getAutoMode() > BeamEngine::SEMIAUTO)
@@ -2407,13 +2409,13 @@ bool RoRFrameListener::updateEvents(float dt)
 								// classic mode, realistic
 								if (curr_truck->engine)
 								{
-									curr_truck->engine->autoSetAcc(accval);
+									curr_truck->engine->autoSetAcc(accl);
 								}
 								curr_truck->brake = brake * curr_truck->brakeforce;
 							} else
 							{
 								// start engine
-								if (accval > 0 && curr_truck->engine && curr_truck->engine->hasContact() && !curr_truck->engine->isRunning())
+								if (curr_truck->engine->hasContact() && !curr_truck->engine->isRunning() && (accl > 0 || brake > 0))
 								{
 									curr_truck->engine->start();
 								}
@@ -2424,7 +2426,7 @@ bool RoRFrameListener::updateEvents(float dt)
 									// neutral or drive forward, everything is as its used to be: brake is brake and accel. is accel.
 									if (curr_truck->engine)
 									{
-										curr_truck->engine->autoSetAcc(accval);
+										curr_truck->engine->autoSetAcc(accl);
 									}
 									curr_truck->brake = brake * curr_truck->brakeforce;
 								} else
@@ -2434,14 +2436,14 @@ bool RoRFrameListener::updateEvents(float dt)
 									{
 										curr_truck->engine->autoSetAcc(brake);
 									}
-									curr_truck->brake = accval * curr_truck->brakeforce;
+									curr_truck->brake = accl * curr_truck->brakeforce;
 								}
 
 								// only when the truck really is not moving anymore
 								if (fabs(curr_truck->WheelSpeed) <= 0.1f)
 								{
 									// switching point, does the user want to drive forward from backward or the other way round? change gears?
-									if (brake > 0.5f && accval < 0.5f && curr_truck->engine->getGear() >= 0)
+									if (brake > 0.5f && accl < 0.5f && curr_truck->engine->getGear() >= 0)
 									{
 										// we are on the brake, jump to reverse gear
 										if (curr_truck->engine->getAutoMode() == BeamEngine::AUTOMATIC)
@@ -2451,7 +2453,7 @@ bool RoRFrameListener::updateEvents(float dt)
 										{
 											curr_truck->engine->setGear(-1);
 										}
-									} else if (brake < 0.5f && accval > 0.5f && curr_truck->engine->getGear() < 0)
+									} else if (brake < 0.5f && accl > 0.5f && curr_truck->engine->getGear() < 0)
 									{
 										// we are on the gas pedal, jump to first gear when we were in rear gear
 										if (curr_truck->engine->getAutoMode() == BeamEngine::AUTOMATIC)
@@ -2547,6 +2549,7 @@ bool RoRFrameListener::updateEvents(float dt)
 								} else if (INPUTENGINE.getEventBoolValueBounce(EV_TRUCK_SHIFT_DOWN))
 								{
 									if (shiftmode  > BeamEngine::SEMIAUTO ||
+										shiftmode == BeamEngine::SEMIAUTO  && !arcadeControls ||
 										shiftmode == BeamEngine::SEMIAUTO  && curr_truck->engine->getGear() > 0 ||
 										shiftmode == BeamEngine::AUTOMATIC && curr_truck->engine->getGear() > 1)
 									{
@@ -2559,11 +2562,11 @@ bool RoRFrameListener::updateEvents(float dt)
 								}
 							} else //if (shiftmode > BeamEngine::MANUAL) // h-shift or h-shift with ranges shifting
 							{
-								bool gear_changed	= false;
-								bool found			= false;
-								int curgear		    = curr_truck->engine->getGear();
-								int curgearrange    = curr_truck->engine->getGearRange();
-								int gearoffset      = std::max(0, curgear - curgearrange * 6);
+								bool gear_changed = false;
+								bool found        = false;
+								int curgear       = curr_truck->engine->getGear();
+								int curgearrange  = curr_truck->engine->getGearRange();
+								int gearoffset    = std::max(0, curgear - curgearrange * 6);
 
 								// one can select range only if in natural
 								if (shiftmode==BeamEngine::MANUAL_RANGES && curgear == 0)
@@ -2647,36 +2650,47 @@ bool RoRFrameListener::updateEvents(float dt)
 									}
 								} // end of if (gear_changed)
 							} // end of shitmode > BeamEngine::MANUAL
-
+							
 							// anti roll back in BeamEngine::AUTOMATIC (DRIVE, TWO, ONE) mode
 							if (curr_truck->engine->getAutoMode()  == BeamEngine::AUTOMATIC &&
 							   (curr_truck->engine->getAutoShift() == BeamEngine::DRIVE ||
 							    curr_truck->engine->getAutoShift() == BeamEngine::TWO ||
 							    curr_truck->engine->getAutoShift() == BeamEngine::ONE) &&
-								curr_truck->WheelSpeed < 0.1f)
+								curr_truck->WheelSpeed < +0.1f)
 							{
 								Vector3 dirDiff = (curr_truck->nodes[curr_truck->cameranodepos[0]].RelPosition - curr_truck->nodes[curr_truck->cameranodedir[0]].RelPosition).normalisedCopy();
 								Degree pitchAngle = Radian(asin(dirDiff.dotProduct(Vector3::UNIT_Y)));
-								float accl = INPUTENGINE.getEventValue(EV_TRUCK_ACCELERATE);
 
-								if (pitchAngle.valueDegrees() > 1.0f)
+								if (pitchAngle.valueDegrees() > +1.0f)
 								{
-									curr_truck->brake = curr_truck->brakeforce * (1.0f - accl);
+									if (sin(pitchAngle.valueRadians()) * curr_truck->getTotalMass() > curr_truck->engine->getTorque() / 2.0f)
+									{
+										curr_truck->brake = curr_truck->brakeforce;
+									} else
+									{
+										curr_truck->brake = curr_truck->brakeforce * (1.0f - accl);
+									}
 								}
 							}
 
 							// anti roll forth in BeamEngine::AUTOMATIC (REAR) mode
 							if (curr_truck->engine->getAutoMode()  == BeamEngine::AUTOMATIC &&
 							    curr_truck->engine->getAutoShift() == BeamEngine::REAR &&
-								curr_truck->WheelSpeed > 0.1f)
+								curr_truck->WheelSpeed > -0.1f)
 							{
 								Vector3 dirDiff = (curr_truck->nodes[curr_truck->cameranodepos[0]].RelPosition - curr_truck->nodes[curr_truck->cameranodedir[0]].RelPosition).normalisedCopy();
 								Degree pitchAngle = Radian(asin(dirDiff.dotProduct(Vector3::UNIT_Y)));
 								float accl = INPUTENGINE.getEventValue(EV_TRUCK_ACCELERATE);
 
-								if (pitchAngle.valueDegrees() < 1.0f)
+								if (pitchAngle.valueDegrees() < -1.0f)
 								{
-									curr_truck->brake = curr_truck->brakeforce * (1.0f - accl);
+									if (sin(pitchAngle.valueRadians()) * curr_truck->getTotalMass() < curr_truck->engine->getTorque() / 2.0f)
+									{
+										curr_truck->brake = curr_truck->brakeforce;
+									} else
+									{
+										curr_truck->brake = curr_truck->brakeforce * (1.0f - accl);
+									}
 								}
 							}
 						} // end of ->engine
@@ -4838,7 +4852,7 @@ void RoRFrameListener::loadClassicTerrain(String terrainfile)
 	collisions->finishLoadingTerrain();
 }
 
-void RoRFrameListener::initTrucks(bool loadmanual, Ogre::String selected, Ogre::String selectedExtension, std::vector<Ogre::String> *truckconfig, bool enterTruck, Skin *skin)
+void RoRFrameListener::initTrucks(bool loadmanual, Ogre::String selected, Ogre::String selectedExtension /* = "" */, std::vector<Ogre::String> *truckconfig/* =0 */, bool enterTruck /* = false */, Skin *skin /* = NULL */)
 {
 	//we load truck
 	char *selectedchr = const_cast< char *> (selected.c_str());

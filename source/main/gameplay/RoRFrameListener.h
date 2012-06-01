@@ -240,16 +240,20 @@ protected:
 
 	unsigned int mNumScreenShots;
 	
+	void checkSpeedlimit(Beam* curr_truck, float dt);
+	void updateCruiseControl(Beam* curr_truck, float dt);
+
 	bool updateAnimatedObjects(float dt);
 	bool updateTruckMirrors(float dt);
 
 	int setupBenchmark();
-
 	void gridScreenshots(Ogre::RenderWindow* pRenderWindow, Ogre::Camera* pCamera, const int& pGridSize, const Ogre::String& path, const Ogre::String& pFileName, const Ogre::String& pFileExtention, const bool& pStitchGridImages);
+	
 	void initDust();
 	void initHDR();
 	void initSoftShadows();
 	void initializeCompontents();
+
 	void updateGUI(float dt); // update engine panel
 	void updateIO(float dt);
 	void updateStats(void);
@@ -296,7 +300,7 @@ public: // public methods
 	void checkRemoteStreamResultsChanged();
 	void hideGUI(bool visible);
 	void hideMap();
-	void initTrucks(bool loadmanual, Ogre::String selected, Ogre::String selectedExtension = Ogre::String(), std::vector<Ogre::String> *truckconfig=0, bool enterTruck=false, Skin *skin=NULL);
+	void initTrucks(bool loadmanual, Ogre::String selected, Ogre::String selectedExtension = "", std::vector<Ogre::String> *truckconfig=0, bool enterTruck = false, Skin *skin = NULL);
 	void loadClassicTerrain(Ogre::String terrainfile);
 	void loadNetTerrain(char *preselected_map);
 	void loadObject(const char* name, float px, float py, float pz, float rx, float ry, float rz, Ogre::SceneNode * bakeNode, const char* instancename, bool enable_collisions=true, int scripthandler=-1, const char *type=0, bool uniquifyMaterial=false);

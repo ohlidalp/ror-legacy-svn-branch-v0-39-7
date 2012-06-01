@@ -28,6 +28,7 @@ along with Rigs of Rods.  If not, see <http://www.gnu.org/licenses/>.
 #include "CameraBehaviorCharacter.h"
 #include "CameraBehaviorFixed.h"
 #include "CameraBehaviorFree.h"
+#include "CameraBehaviorIsometric.h"
 #include "CameraBehaviorStatic.h"
 #include "CameraBehaviorVehicle.h"
 #include "CameraBehaviorVehicleCineCam.h"
@@ -79,6 +80,7 @@ void CameraManager::update(float dt)
 	mTransScale = mTransSpeed  * dt;
 	mRotScale   = mRotateSpeed * dt;
 
+	ctx.mCollisions = RoRFrameListener::eflsingleton->getCollisions();
 	ctx.mCurrTruck  = BeamFactory::getSingleton().getCurrentTruck();
 	ctx.mDt         = dt;
 	ctx.mHfinder    = RoRFrameListener::hfinder;
@@ -212,6 +214,7 @@ void CameraManager::createGlobalBehaviors()
 	globalBehaviors.insert(std::pair<int, ICameraBehavior*>(CAMERA_BEHAVIOR_VEHICLE_CINECAM, new CameraBehaviorVehicleCineCam()));
 	globalBehaviors.insert(std::pair<int, ICameraBehavior*>(CAMERA_BEHAVIOR_FREE, new CameraBehaviorFree()));
 	globalBehaviors.insert(std::pair<int, ICameraBehavior*>(CAMERA_BEHAVIOR_FIXED, new CameraBehaviorFixed()));
+	globalBehaviors.insert(std::pair<int, ICameraBehavior*>(CAMERA_BEHAVIOR_ISOMETRIC, new CameraBehaviorIsometric()));
 }
 
 bool CameraManager::mouseMoved(const OIS::MouseEvent& _arg)
